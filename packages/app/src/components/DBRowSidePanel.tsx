@@ -37,6 +37,7 @@ import {
 } from '@mantine/core';
 import { IconCopy, IconKeyboard, IconShare, IconX } from '@tabler/icons-react';
 
+import { useCompactViewport } from '@/components/CompactViewport/useCompactViewport';
 import { useCloseOnClickOutside } from '@/hooks/useCloseOnClickOutside';
 import { useOpenedRowSpanSelection } from '@/hooks/useOpenedRowSpanSelection';
 import useResizable from '@/hooks/useResizable';
@@ -1366,6 +1367,9 @@ export default function DBRowSidePanelErrorBoundary({
     INITIAL_DRAWER_WIDTH_PERCENT,
   );
 
+  // A compact viewport has no room beside the panel, so it always opens full
+  // width, without the resize handle or the width toggle.
+  const isCompact = useCompactViewport();
   const isFullWidth = size >= 99;
   const toggleFullWidth = useCallback(() => {
     setSize(isFullWidth ? INITIAL_DRAWER_WIDTH_PERCENT : 100);
@@ -1420,7 +1424,11 @@ export default function DBRowSidePanelErrorBoundary({
       trapFocus={false}
       onClose={_onClose}
       position="right"
-      size={`${size}vw`}
+      size={isCompact ? '100vw' : `${size}vw`}
+      // No slide-in on a compact viewport. The View Trace callout is placed
+      // while the panel is still off to the right, and a phone browser then
+      // widens the page to fit the callout and zooms out.
+      transitionProps={isCompact ? { duration: 0 } : undefined}
       styles={{
         content: {
           border: 'none',
@@ -1435,7 +1443,9 @@ export default function DBRowSidePanelErrorBoundary({
     >
       <ZIndexContext value={drawerZIndex}>
         <div className={styles.panel} data-testid="row-side-panel">
-          <Box className={styles.panelDragBar} onMouseDown={startResize} />
+          {!isCompact && (
+            <Box className={styles.panelDragBar} onMouseDown={startResize} />
+          )}
           <ErrorBoundary
             fallbackRender={fallbackProps => (
               <SidePanelErrorFallback {...fallbackProps} onClose={_onClose} />
@@ -1448,7 +1458,7 @@ export default function DBRowSidePanelErrorBoundary({
               sidePanelStack={sidePanelStack}
               onClose={_onClose}
               isFullWidth={isFullWidth}
-              onToggleFullWidth={toggleFullWidth}
+              onToggleFullWidth={isCompact ? undefined : toggleFullWidth}
             />
           </ErrorBoundary>
         </div>
