@@ -136,6 +136,20 @@ COPY --chown=node:node --from=builder /app/packages/app/.next/standalone ./packa
 COPY --chown=node:node --from=builder /app/packages/app/.next/static ./packages/app/packages/app/.next/static
 COPY --chown=node:node --from=builder /app/packages/app/public ./packages/app/packages/app/public
 
+# Drop the esbuild compiler from the runtime tree. The Next.js standalone trace
+# pulls it in through a build-time dependency, so the image ships
+# @esbuild/<platform>/bin/esbuild, a Go binary that AWS Inspector scores the
+# whole Go standard library against: 63 of the 179 findings on
+# 2.39.1-mobile-patched-3, 5 of them Critical. Nothing the entrypoint starts
+# compiles anything — entry.prod.sh runs concurrently, the API binary, and the
+# Next server — and no file under packages/api/src, packages/app/src, or
+# packages/common-utils/src references esbuild. The guard fails the build if a
+# binary is left, because rm on a glob that matches nothing still exits 0.
+RUN rm -rf ./node_modules/esbuild ./node_modules/@esbuild \
+      ./packages/app/node_modules/esbuild ./packages/app/node_modules/@esbuild \
+      ./packages/common-utils/node_modules/esbuild ./packages/common-utils/node_modules/@esbuild && \
+    ! find /app -name esbuild -type f | grep -q .
+
 # Set up start scripts
 COPY --chown=node:node --from=hyperdx ./refresh-env.js /etc/local/refresh-env.js
 COPY --chown=node:node --from=hyperdx ./entry.prod.sh /etc/local/entry.sh
